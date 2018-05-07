@@ -28,6 +28,7 @@ class PaymentProcessor(PaymentProcessorBase):
 
     _GATEWAY_URL = u'https://www.saferpay.com/api/'
     _TEST_GATEWAY_URL = u'https://test.saferpay.com/api/'
+    _API_VERSION = '1.8'
 
     @classmethod
     def get_api_url(cls):
@@ -39,7 +40,7 @@ class PaymentProcessor(PaymentProcessorBase):
 
         request_id = u'rid{}'.format(int(time.time() * 1000))
         json_data['RequestHeader'] = {
-            "SpecVersion": PaymentProcessor.get_backend_setting('api_version', '1.3'),
+            "SpecVersion": PaymentProcessor.get_backend_setting('api_version', cls._API_VERSION),
             "CustomerId": PaymentProcessor.get_backend_setting('customer_id'),
             "RequestId": request_id,
             "RetryIndicator": 0
@@ -126,6 +127,15 @@ class PaymentProcessor(PaymentProcessorBase):
                 payment.external_id = cls._pack_external_id(token, transaction_id)
 
                 if status in ['AUTHORIZED', 'CAPTURED']:
+                    if status == 'AUTHORIZED':
+                        logger.info('Payment {} authorized with status {} and amount {} {}.'.format(
+                            payment.id, status, amount_value, amount_currency))
+                        if not cls.capture_transaction(transaction_id):
+                            payment.on_failure()
+                            return False
+                    else:
+                        logger.info('Payment {} captured in one step with status {} and amount {} {}.'.format(
+                            payment.id, status, amount_value, amount_currency))
                     logger.info('Payment {} accepted with status {} and amount {} {}.'.format(
                         payment.id, status, amount_value, amount_currency))
                     payment.on_success(Decimal(amount_value))
@@ -149,3 +159,17 @@ class PaymentProcessor(PaymentProcessorBase):
         token, transaction_id = external_id.split('_')
         transaction_id = transaction_id or None
         return token, transaction_id
+
+    @classmethod
+    def capture_transaction(cls, transaction_id):
+        logger.info('Capture transaction {}'.format(transaction_id))
+        call_json_data = {
+            "TransactionReference": {
+                "TransactionId": transaction_id
+            }
+        }
+        response_json = cls._post('/Payment/v1/Transaction/Capture', call_json_data)
+        status = response_json['Status']
+        if status == 'CAPTURED':
+            return True
+        return False
