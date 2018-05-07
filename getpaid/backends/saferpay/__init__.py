@@ -130,7 +130,8 @@ class PaymentProcessor(PaymentProcessorBase):
                     if status == 'AUTHORIZED':
                         logger.info('Payment {} authorized with status {} and amount {} {}.'.format(
                             payment.id, status, amount_value, amount_currency))
-                        if not cls.capture_transaction(transaction_id):
+                        status = cls.capture_transaction(transaction_id)
+                        if status != 'CAPTURED':
                             payment.on_failure()
                             return False
                     else:
@@ -169,7 +170,5 @@ class PaymentProcessor(PaymentProcessorBase):
             }
         }
         response_json = cls._post('/Payment/v1/Transaction/Capture', call_json_data)
-        status = response_json['Status']
-        if status == 'CAPTURED':
-            return True
-        return False
+        return response_json['Status']
+
