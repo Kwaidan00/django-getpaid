@@ -169,6 +169,6 @@ class PaymentProcessor(PaymentProcessorBase):
                 "TransactionId": transaction_id
             }
         }
-        response_json = cls._post('/Payment/v1/Transaction/Capture', call_json_data)
+        response_json = cls._post('Payment/v1/Transaction/Capture', call_json_data)
         return response_json['Status']
 
