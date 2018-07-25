@@ -2,6 +2,7 @@ import logging
 
 import requests
 import time
+import json
 
 from decimal import Decimal
 from django.core.exceptions import ImproperlyConfigured, SuspiciousOperation
@@ -131,9 +132,9 @@ class PaymentProcessor(PaymentProcessorBase):
                         logger.info('Payment {} authorized with status {} and amount {} {}.'.format(
                             payment.id, status, amount_value, amount_currency))
                         status = cls.capture_transaction(transaction_id)
-                        if status != 'CAPTURED':
-                            payment.on_failure()
-                            return False
+                        # if status != 'CAPTURED':
+                        #     payment.on_failure()
+                        #     return False
                     else:
                         logger.info('Payment {} captured in one step with status {} and amount {} {}.'.format(
                             payment.id, status, amount_value, amount_currency))
@@ -169,6 +170,15 @@ class PaymentProcessor(PaymentProcessorBase):
                 "TransactionId": transaction_id
             }
         }
-        response_json = cls._post('Payment/v1/Transaction/Capture', call_json_data)
-        return response_json['Status']
+        status = ''
+        try:
+            response_json = cls._post('Payment/v1/Transaction/Capture', call_json_data)
+            try:
+                status = response_json['Status']
+            except (KeyError, ValueError) as e:
+                logger.info('Capture transaction {} not rejected, but we have JSON error'.format(transaction_id))
+                logger.info('{}', json.dumps(response_json, indent=4))
+        except SaferpayApiError as e:
+            logger.info('Capture transaction {} rejected. Info: {}'.format(transaction_id, e))
+        return status
 
