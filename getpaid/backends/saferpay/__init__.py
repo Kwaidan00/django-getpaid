@@ -177,7 +177,7 @@ class PaymentProcessor(PaymentProcessorBase):
                 status = response_json['Status']
             except (KeyError, ValueError) as e:
                 logger.info('Capture transaction {} not rejected, but we have JSON error'.format(transaction_id))
-                logger.info('{}', json.dumps(response_json, indent=4))
+                logger.info('{}'.format(json.dumps(response_json, indent=4)))
         except SaferpayApiError as e:
             logger.info('Capture transaction {} rejected. Info: {}'.format(transaction_id, e))
         return status
